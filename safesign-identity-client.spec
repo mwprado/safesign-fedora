@@ -1,13 +1,14 @@
 Name:           safesign-identity-client
 Version:        4.6.0.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        SafeSign Identity Client - Gerenciador de Token Criptográfico (G+D)
-License:        Proprietaria
+License:        Proprietary
 URL:            https://gdamericadosul.com.br
 # URL de referência para download manual:
 # "https://gdamericadosul.com.br/content/SafeSign IC Standard Linux redhat10 4.6.0.0-AET.000.zip"
 
 Source0:        SafeSign_IC_Standard_Linux_redhat10_4.6.0.0-AET.000.zip
+Source1:        safesign.module
 NoSource:       0
 
 # Desativa recursos de compilação automáticos que corrompem binários prontos
@@ -26,20 +27,25 @@ BuildRequires:  rpm-build
 BuildRequires:  cpio
 
 # Dependências nativas de execução mapeadas para o ecossistema do Fedora
-Requires: glibc >= 2.38
-Requires: openssl-libs >= 3.4.0
-Requires: libstdc++
-Requires: pcsc-lite
-Requires: pcsc-lite-libs
-Requires: gtk3
-Requires: cairo
-Requires: pango
-Requires: libX11
-Requires: gdbm
+Requires:       glibc >= 2.38
+Requires:       openssl-libs >= 3.4.0
+Requires:       libstdc++
+Requires:       pcsc-lite
+Requires:       pcsc-lite-libs
+Requires:       p11-kit
+Requires:       gtk3
+Requires:       cairo
+Requires:       pango
+Requires:       libX11
+Requires:       gdbm
+
+# Ferramentas úteis para diagnóstico e teste do token/PKCS#11
+Recommends:     pcsc-tools
+Recommends:     opensc
 
 %description
 Utilitário de administração e bibliotecas PKCS#11 para tokens SafeSign,
-reempacotado de forma automatizada e portátil para o Fedora a partir do 
+reempacotado de forma automatizada e portátil para o Fedora a partir do
 binário oficial homologado para Red Hat 10.
 
 %prep
@@ -66,6 +72,10 @@ fi
 
 rpm2cpio "$RPM_FILE" | cpio -idmv
 
+# Registra o módulo PKCS#11 do SafeSign no p11-kit para descoberta pelo sistema
+install -Dpm0644 %{SOURCE1} \
+    %{buildroot}%{_datadir}/p11-kit/modules/safesign.module
+
 %post
 /sbin/ldconfig
 /usr/bin/update-desktop-database &> /dev/null || :
@@ -80,6 +90,7 @@ rpm2cpio "$RPM_FILE" | cpio -idmv
 # Mapeamento genérico e seguro de toda a árvore extraída do pacote oficial
 %{_bindir}/tokenadmin
 %{_libdir}/libaet*.so*
+%{_datadir}/p11-kit/modules/safesign.module
 %{_datadir}/applications/*.desktop
 %{_datadir}/metainfo/*.xml
 %{_datadir}/doc/safesignidentityclient/
@@ -89,5 +100,10 @@ rpm2cpio "$RPM_FILE" | cpio -idmv
 %{_datadir}/locale/*/tokenutils.mo
 
 %changelog
-* Sun May 17 2026 Seu Nome <seuemail@provedor.com> - 4.6.0.0-1
+* Sun May 17 2026 Moacyr Prado <10207086+mwprado@users.noreply.github.com> - 4.6.0.0-5
+- Registra o módulo PKCS#11 do SafeSign no p11-kit.
+- Adiciona p11-kit como dependência de execução.
+- Adiciona pcsc-tools e opensc como recomendações para diagnóstico.
+
+* Sun May 17 2026 Moacyr Prado <10207086+mwprado@users.noreply.github.com> - 4.6.0.0-1
 - Versão inicial portátil obtendo o ZIP diretamente do servidor da G+D América do Sul.
