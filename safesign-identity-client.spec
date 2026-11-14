@@ -1,6 +1,6 @@
 Name:           safesign-identity-client
 Version:        4.7.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        SafeSign Identity Client - Gerenciador de Token Criptográfico (G+D)
 License:        Proprietary
 URL:            https://gdamericadosul.com.br
@@ -9,6 +9,7 @@ ExclusiveArch:  x86_64
 # ZIP oficial para RHEL 10; normaliza o nome antes da fase de preparação.
 Source0:        SafeSign_IC_Standard_Linux_redhat10_%{version}-AET.000.zip
 Source1:        safesign.module
+Source2:        safesign-firefox-policy.py
 NoSource:       0
 
 # Preserva os binários proprietários pré-compilados.
@@ -27,6 +28,7 @@ BuildRequires:  desktop-file-utils
 # Dependências ELF são geradas automaticamente pelo RPM.
 Requires:       pcsc-lite
 Requires:       p11-kit
+Requires:       python3
 Recommends:     pcsc-tools
 Recommends:     opensc
 
@@ -60,6 +62,9 @@ test -e %{buildroot}%{_libdir}/libaetpkss.so
 install -Dpm0644 %{SOURCE1} \
     %{buildroot}%{_datadir}/p11-kit/modules/safesign.module
 
+install -Dpm0755 %{SOURCE2} \
+    %{buildroot}%{_libexecdir}/safesign-firefox-policy
+
 desktop-file-validate \
     %{buildroot}%{_datadir}/applications/com.aeteurope.tokenadmin.desktop
 
@@ -72,7 +77,11 @@ for mo in %{buildroot}%{_datadir}/locale/*/tokenutils.mo; do
     printf '%%%%lang(%%s) %%s\n' "$lang" "${mo#%{buildroot}}" >> tokenutils.lang
 done
 
+%posttrans
+%{_libexecdir}/safesign-firefox-policy || :
+
 %files -f tokenutils.lang
+%{_libexecdir}/safesign-firefox-policy
 %{_bindir}/tokenadmin
 %{_libdir}/libaet*.so*
 %{_datadir}/p11-kit/modules/safesign.module
@@ -88,6 +97,10 @@ done
 %{_datadir}/safesign/
 
 %changelog
+* Sat Nov 14 2026 Moacyr Prado <10207086+mwprado@users.noreply.github.com> - 4.7.0.0-2
+- Configura automaticamente o módulo PKCS#11 no Firefox via SecurityDevices.Add.
+- Preserva políticas existentes e permite executar novamente o configurador.
+
 * Sat Nov 14 2026 Moacyr Prado <10207086+mwprado@users.noreply.github.com> - 4.7.0.0-1
 - Atualiza para SafeSign 4.7.0.0 e utiliza rpm_sources.tar.gz do ZIP oficial.
 - Preserva os binários, links simbólicos e integração PKCS#11 com p11-kit.
