@@ -6,8 +6,8 @@ License:        Proprietary
 URL:            https://gdamericadosul.com.br
 ExclusiveArch:  x86_64
 
-# ZIP oficial para RHEL 10, mantendo o nome original do fabricante.
-Source0:        SafeSign IC Standard Linux redhat10 %{version}-AET.000.zip
+# ZIP oficial para RHEL 10; normaliza o nome antes da fase de preparação.
+Source0:        SafeSign_IC_Standard_Linux_redhat10_%{version}-AET.000.zip
 Source1:        safesign.module
 NoSource:       0
 
@@ -38,6 +38,10 @@ Utilitário de administração e bibliotecas PKCS#11 para tokens SafeSign,
 reempacotado para Fedora a partir dos binários oficiais para Red Hat 10.
 
 %prep
+# Aceita o ZIP com o nome original do fabricante.
+if [ ! -f "%{SOURCE0}" ]; then
+    mv "%{_sourcedir}/SafeSign IC Standard Linux redhat10 %{version}-AET.000.zip" "%{SOURCE0}"
+fi
 %setup -q -c -T
 unzip -p "%{SOURCE0}" rpm_sources.tar.gz > rpm_sources.tar.gz
 tar -xzf rpm_sources.tar.gz
