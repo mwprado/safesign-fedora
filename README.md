@@ -1,11 +1,17 @@
 # SafeSign Identity Client para Fedora
 
-Este repositório contém arquivos de empacotamento e instruções para gerar localmente um pacote RPM do **SafeSign Identity Client 4.6.0.0** para Fedora.
+Este repositório contém arquivos de empacotamento e instruções para gerar localmente um pacote RPM do **SafeSign Identity Client 4.7.0.0** para Fedora.
 
 O objetivo é facilitar o uso do SafeSign no Fedora Workstation e em variantes atômicas baseadas em `rpm-ostree`, como Fedora Silverblue e Fedora Kinoite, a partir do instalador originalmente distribuído para Red Hat Enterprise Linux 10.
 
 > [!IMPORTANT]
 > Este repositório **não distribui** o SafeSign Identity Client, suas bibliotecas, binários, instaladores ou qualquer outro componente proprietário. O usuário deve obter o instalador original por meios oficiais e observar os termos de licença do fornecedor.
+
+## Compatibilidade
+
+- Fedora 45 x86_64: compilação, instalação, reconhecimento do token G+D e configuração manual do Firefox validados na release 1.
+- Release 2: configuração automática do Firefox implementada, aguardando validação em instalação real.
+- Outras versões do Fedora e variantes atômicas: não validadas nesta versão.
 
 ## Finalidade
 
@@ -17,6 +23,7 @@ Este projeto se limita a:
 - documentar o processo de build local;
 - documentar a instalação no Fedora;
 - registrar o módulo PKCS#11 do SafeSign no `p11-kit`;
+- configurar automaticamente o Firefox RPM por meio da política `SecurityDevices.Add`;
 - documentar testes básicos com PC/SC, PKCS#11 e Firefox.
 
 ## Escopo do repositório
@@ -39,7 +46,7 @@ Por se tratar de software proprietário, o pacote RPM deve ser gerado localmente
 No Fedora Workstation:
 
 ```bash
-sudo dnf install fedora-packager rpmdevtools rpm-build unzip cpio
+sudo dnf install fedora-packager rpmdevtools rpm-build unzip tar gzip desktop-file-utils
 ```
 
 ### 2. Preparar a árvore RPM
@@ -56,7 +63,7 @@ Copie o arquivo de especificação e o módulo `p11-kit` para o diretório `SOUR
 
 ```bash
 cp safesign-identity-client.spec ~/rpmbuild/SPECS/
-cp safesign.module ~/rpmbuild/SOURCES/
+cp safesign.module safesign-firefox-policy.py ~/rpmbuild/SOURCES/
 ```
 
 Baixe o instalador oficial do SafeSign Identity Client pelo canal oficial do fornecedor e coloque o arquivo ZIP em `~/rpmbuild/SOURCES/`.
@@ -64,14 +71,16 @@ Baixe o instalador oficial do SafeSign Identity Client pelo canal oficial do for
 Exemplo, ajustando o nome conforme o arquivo obtido:
 
 ```bash
-mv "SafeSign IC Standard Linux redhat10 4.6.0.0-AET.000.zip" ~/rpmbuild/SOURCES/SafeSign_IC_Standard_Linux_redhat10_4.6.0.0-AET.000.zip
+cp "SafeSign IC Standard Linux redhat10 4.7.0.0-AET.000.zip" ~/rpmbuild/SOURCES/
 ```
+
+O SPEC normaliza automaticamente o nome do ZIP com sublinhados na fase `%prep` e extrai `rpm_sources.tar.gz`.
 
 ### 4. Construir o pacote
 
 ```bash
 cd ~/rpmbuild/SPECS/
-rpmbuild -bb safesign-identity-client.spec
+rpmbuild -ba safesign-identity-client.spec
 ```
 
 O RPM gerado ficará em:
@@ -101,7 +110,7 @@ O `pcscd.service` é ativado sob demanda pelo socket. Em condições normais, n�
 Depois instale o pacote RPM gerado:
 
 ```bash
-sudo dnf install ~/rpmbuild/RPMS/x86_64/safesign-identity-client-4.6.0.0-*.rpm
+sudo dnf install ~/rpmbuild/RPMS/x86_64/safesign-identity-client-4.7.0.0-*.rpm
 ```
 
 ### Fedora Silverblue / Kinoite
@@ -115,7 +124,7 @@ sudo systemctl enable --now pcscd.socket
 Instale o RPM via `rpm-ostree`:
 
 ```bash
-rpm-ostree install ~/rpmbuild/RPMS/x86_64/safesign-identity-client-4.6.0.0-*.rpm
+rpm-ostree install ~/rpmbuild/RPMS/x86_64/safesign-identity-client-4.7.0.0-*.rpm
 ```
 
 Depois reinicie o sistema para aplicar a nova camada do sistema operacional.
@@ -220,51 +229,50 @@ module: safesign
 
 ## Configuração do Firefox
 
-Para que o Firefox utilize certificados A3 em token USB, é possível registrar explicitamente o módulo PKCS#11 do SafeSign.
+A partir da release 2, o RPM executa o configurador em `%posttrans` e registra o módulo SafeSign para o Firefox nativo (RPM), inclusive quando o navegador ainda não está instalado.
 
-O caminho esperado da biblioteca é:
+O configurador integra a seguinte política ao arquivo `/etc/firefox/policies/policies.json`:
 
-```text
-/usr/lib64/libaetpkss.so
-```
-
-### Método 1: política do Firefox
-
-Este método registra o módulo para todos os perfis do Firefox no sistema.
-
-```bash
-sudo mkdir -p /etc/firefox/policies
-sudo tee /etc/firefox/policies/policies.json >/dev/null <<'EOF'
+```json
 {
   "policies": {
     "SecurityDevices": {
-      "SafeSign PKCS11": "/usr/lib64/libaetpkss.so"
+      "Add": {
+        "SafeSign G+D": "/usr/lib64/libaetpkss.so"
+      }
     }
   }
 }
-EOF
 ```
 
-Em Fedora Silverblue e Kinoite, `/etc` é mutável, portanto esse método também é aplicável.
+Outras políticas existentes são preservadas. Se o mesmo caminho já estiver registrado em `Add`, não é criado outro registro. Se o JSON estiver inválido, utilizar o formato legado de SecurityDevices, tiver um conflito de nome ou desabilitar explicitamente o módulo, o configurador informa o problema sem substituir o arquivo. Nesses casos, o administrador deve ajustar a política manualmente.
 
-### Método 2: configuração manual no Firefox
+Para reaplicar a configuração:
 
-1. Insira o token criptográfico em uma porta USB.
-2. Abra o Firefox.
-3. Acesse `about:preferences#privacy`.
-4. Vá até a seção **Certificados**.
-5. Clique em **Dispositivos de Segurança**.
-6. Clique em **Carregar**.
-7. Preencha os campos:
-   - **Nome do módulo:** `SafeSign PKCS#11 Module`
-   - **Nome do arquivo do módulo:** `/usr/lib64/libaetpkss.so`
-8. Confirme a operação e verifique se o dispositivo aparece como ativo ou disponível.
-
-Verifique se o Firefox reconheceu a política:
-
-```text
-about:policies
+```bash
+sudo /usr/libexec/safesign-firefox-policy
 ```
+
+Feche completamente o Firefox e abra-o novamente. Acesse `about:policies` e verifique a política ativa e a seção de erros. Em seguida, acesse `about:preferences#privacy` → **Certificados** → **Dispositivos de Segurança**.
+
+Se o token já estiver disponível por p11-kit ou por registro manual, não adicione outra instância desnecessariamente.
+
+### Configuração manual (alternativa)
+
+1. Insira o token criptográfico.
+2. Acesse `about:preferences#privacy`.
+3. Em **Certificados**, clique em **Dispositivos de Segurança**.
+4. Se o módulo ainda não estiver disponível, clique em **Carregar**.
+5. Nome: `SafeSign G+D`; arquivo: `/usr/lib64/libaetpkss.so`.
+6. Confirme e verifique o token e os certificados.
+
+### Remoção e limitações
+
+A política é configuração administrativa compartilhada e não é apagada automaticamente na desinstalação do RPM. Para removê-la, retire somente a entrada SafeSign de `SecurityDevices.Add` e, se necessário, descarregue o módulo em Dispositivos de Segurança. Não apague políticas de outros programas.
+
+A configuração automática destina-se ao Firefox RPM. O Firefox Flatpak possui isolamento próprio e requer configuração específica; não foi validado. Em sistemas atômicos, confira a política após reiniciar e execute o configurador manualmente se necessário.
+
+Referências: [SecurityDevices](https://firefox-admin-docs.mozilla.org/reference/policies/securitydevices/) e [Configuração de políticas](https://firefox-admin-docs.mozilla.org/guides/policies-configuration/).
 
 ## Certificados A1
 
@@ -282,5 +290,7 @@ No Firefox:
 ## Licença
 
 Os arquivos próprios deste repositório, incluindo documentação e arquivos de empacotamento, são distribuídos sob a licença MIT. Consulte o arquivo [`LICENSE`](LICENSE).
+
+Não publique o ZIP, o RPM binário gerado ou as bibliotecas proprietárias sem autorização do titular. A diretiva `NoSource: 0` exclui o ZIP do pacote-fonte, mas não autoriza redistribuição do RPM binário.
 
 O **SafeSign Identity Client** e seus componentes binários são software proprietário de seus respectivos titulares, incluindo AET Europe B.V. e/ou G+D Mobile Security/G+D América do Sul, conforme o canal de distribuição utilizado. Este repositório não concede direitos sobre esses componentes proprietários.
