@@ -1,105 +1,95 @@
 Name:           safesign-identity-client
-Version:        4.6.0.0
-Release:        5%{?dist}
+Version:        4.7.0.0
+Release:        1%{?dist}
 Summary:        SafeSign Identity Client - Gerenciador de Token Criptográfico (G+D)
 License:        Proprietary
 URL:            https://gdamericadosul.com.br
-# URL de referência para download manual:
-# "https://gdamericadosul.com.br/content/SafeSign IC Standard Linux redhat10 4.6.0.0-AET.000.zip"
+ExclusiveArch:  x86_64
 
-Source0:        SafeSign_IC_Standard_Linux_redhat10_4.6.0.0-AET.000.zip
+# ZIP oficial para RHEL 10; renomear o arquivo local com sublinhados.
+Source0:        SafeSign_IC_Standard_Linux_redhat10_%{version}-AET.000.zip
 Source1:        safesign.module
 NoSource:       0
 
-# Desativa recursos de compilação automáticos que corrompem binários prontos
-%define debug_package %{nil}
-%define _build_id_links none
-%undefine __find_requires
-%define __find_requires %{nil}
+# Preserva os binários proprietários pré-compilados.
+%global debug_package %{nil}
+%global _build_id_links none
+%global __brp_strip %{nil}
+%global __brp_strip_comment_note %{nil}
+%global __brp_strip_static_archive %{nil}
+%global __brp_strip_lto %{nil}
 
-%global _find_debuginfo_dwz_opts %{nil}
-%global _dwz_low_mem_die_limit 0
-%define _unpackaged_files_terminate_build 0
-
-# Ferramentas necessárias para manipular o ZIP e o RPM interno durante o build
 BuildRequires:  unzip
-BuildRequires:  rpm-build
-BuildRequires:  cpio
+BuildRequires:  tar
+BuildRequires:  gzip
+BuildRequires:  desktop-file-utils
 
-# Dependências nativas de execução mapeadas para o ecossistema do Fedora
-Requires:       glibc >= 2.38
-Requires:       openssl-libs >= 3.4.0
-Requires:       libstdc++
+# Dependências ELF são geradas automaticamente pelo RPM.
 Requires:       pcsc-lite
-Requires:       pcsc-lite-libs
 Requires:       p11-kit
-Requires:       gtk3
-Requires:       cairo
-Requires:       pango
-Requires:       libX11
-Requires:       gdbm
-
-# Ferramentas úteis para diagnóstico e teste do token/PKCS#11
 Recommends:     pcsc-tools
 Recommends:     opensc
 
+Obsoletes:      SafeSign_Identity_Client < %{version}
+Provides:       SafeSign_Identity_Client = %{version}
+
 %description
 Utilitário de administração e bibliotecas PKCS#11 para tokens SafeSign,
-reempacotado de forma automatizada e portátil para o Fedora a partir do
-binário oficial homologado para Red Hat 10.
+reempacotado para Fedora a partir dos binários oficiais para Red Hat 10.
 
 %prep
-# %setup -q -c -T cria o diretório baseado em Name-Version e entra nele
 %setup -q -c -T
-unzip -q "%{SOURCE0}"
+unzip -p "%{SOURCE0}" rpm_sources.tar.gz > rpm_sources.tar.gz
+tar -xzf rpm_sources.tar.gz
+test -d BUILD/usr
 
 %build
-# Fase vazia (binários pré-compilados)
+# Binários pré-compilados.
 
 %install
-rm -rf %{buildroot}
-mkdir -p %{buildroot}
+mkdir -p %{buildroot}/usr
+cp -a BUILD/usr/. %{buildroot}/usr/
 
-# Entra no buildroot para extração limpa
-cd %{buildroot}
+test -x %{buildroot}%{_bindir}/tokenadmin
+test -e %{buildroot}%{_libdir}/libaetpkss.so
 
-# Localiza o arquivo .rpm do Red Hat dentro da pasta de build e extrai via cpio
-RPM_FILE=$(find %{_builddir}/%{name}-%{version} -name "*.rpm" | head -n 1)
-if [ -z "$RPM_FILE" ]; then
-    echo "Erro: RPM interno não encontrado no arquivo ZIP!"
-    exit 1
-fi
-
-rpm2cpio "$RPM_FILE" | cpio -idmv
-
-# Registra o módulo PKCS#11 do SafeSign no p11-kit para descoberta pelo sistema
 install -Dpm0644 %{SOURCE1} \
     %{buildroot}%{_datadir}/p11-kit/modules/safesign.module
 
-%post
-/sbin/ldconfig
-/usr/bin/update-desktop-database &> /dev/null || :
-/usr/bin/gtk-update-icon-cache %{_datadir}/icons/hicolor &> /dev/null || :
+desktop-file-validate \
+    %{buildroot}%{_datadir}/applications/com.aeteurope.tokenadmin.desktop
 
-%postun
-/sbin/ldconfig
-/usr/bin/update-desktop-database &> /dev/null || :
-/usr/bin/gtk-update-icon-cache %{_datadir}/icons/hicolor &> /dev/null || :
+# Preserva os caminhos não convencionais das traduções do fabricante.
+: > tokenutils.lang
+for mo in %{buildroot}%{_datadir}/locale/*/tokenutils.mo; do
+    test -f "$mo" || exit 1
+    langdir=$(dirname "$mo")
+    lang=$(basename "$langdir")
+    printf '%%lang(%%s) %%s\n' "$lang" "${mo#%{buildroot}}" >> tokenutils.lang
+done
 
-%files
-# Mapeamento genérico e seguro de toda a árvore extraída do pacote oficial
+%files -f tokenutils.lang
 %{_bindir}/tokenadmin
 %{_libdir}/libaet*.so*
 %{_datadir}/p11-kit/modules/safesign.module
-%{_datadir}/applications/*.desktop
-%{_datadir}/metainfo/*.xml
-%{_datadir}/doc/safesignidentityclient/
-%{_mandir}/man1/tokenadmin.1.gz
+%{_datadir}/applications/com.aeteurope.tokenadmin.desktop
+%{_datadir}/metainfo/com.aeteurope.tokenadmin.metainfo.xml
+%dir %{_datadir}/doc/safesignidentityclient
+%license %{_datadir}/doc/safesignidentityclient/license.txt
+%license %{_datadir}/doc/safesignidentityclient/copyright
+%license %{_datadir}/doc/safesignidentityclient/SafeSign_License_Agreement_PT_BR.txt
+%license %{_datadir}/doc/safesignidentityclient/3rdparty/
+%{_mandir}/man1/tokenadmin.1*
 %{_datadir}/icons/hicolor/*/apps/tokenadmin.png
 %{_datadir}/safesign/
-%{_datadir}/locale/*/tokenutils.mo
 
 %changelog
+* Sat Nov 14 2026 Moacyr Prado <10207086+mwprado@users.noreply.github.com> - 4.7.0.0-1
+- Atualiza para SafeSign 4.7.0.0 e utiliza rpm_sources.tar.gz do ZIP oficial.
+- Preserva os binários, links simbólicos e integração PKCS#11 com p11-kit.
+- Reativa a geração automática de dependências ELF e valida o desktop.
+- Identifica traduções e licenças e restringe a arquitetura a x86_64.
+
 * Sun May 17 2026 Moacyr Prado <10207086+mwprado@users.noreply.github.com> - 4.6.0.0-5
 - Registra o módulo PKCS#11 do SafeSign no p11-kit.
 - Adiciona p11-kit como dependência de execução.
