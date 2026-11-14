@@ -69,7 +69,7 @@ for mo in %{buildroot}%{_datadir}/locale/*/tokenutils.mo; do
     test -f "$mo" || exit 1
     langdir=$(dirname "$mo")
     lang=$(basename "$langdir")
-    printf '%%lang(%%s) %%s\n' "$lang" "${mo#%{buildroot}}" >> tokenutils.lang
+    printf '%%%%lang(%%s) %%s\n' "$lang" "${mo#%{buildroot}}" >> tokenutils.lang
 done
 
 %files -f tokenutils.lang
