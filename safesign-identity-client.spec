@@ -6,8 +6,8 @@ License:        Proprietary
 URL:            https://gdamericadosul.com.br
 ExclusiveArch:  x86_64
 
-# ZIP oficial para RHEL 10; renomear o arquivo local com sublinhados.
-Source0:        SafeSign_IC_Standard_Linux_redhat10_%{version}-AET.000.zip
+# ZIP oficial para RHEL 10, mantendo o nome original do fabricante.
+Source0:        SafeSign IC Standard Linux redhat10 %{version}-AET.000.zip
 Source1:        safesign.module
 NoSource:       0
 
