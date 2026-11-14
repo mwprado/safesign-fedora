@@ -66,7 +66,7 @@ cp safesign-identity-client.spec ~/rpmbuild/SPECS/
 cp safesign.module safesign-firefox-policy.py ~/rpmbuild/SOURCES/
 ```
 
-Baixe o instalador oficial do SafeSign Identity Client pelo canal oficial do fornecedor e coloque o arquivo ZIP em `~/rpmbuild/SOURCES/`.
+Baixe o instalador oficial do SafeSign Identity Client na [página de downloads da G+D América do Sul](https://safesign.gdamericadosul.com.br/download). Selecione **Linux → Red Hat 10 (64 bits) → SafeSign 4.7.0.0**, obtenha o arquivo `SafeSign IC Standard Linux redhat10 4.7.0.0-AET.000.zip` e coloque-o em `~/rpmbuild/SOURCES/`. O download deve ser realizado diretamente pelo usuário, observando os termos de licença do fabricante.
 
 Exemplo, ajustando o nome conforme o arquivo obtido:
 
